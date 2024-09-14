@@ -1,10 +1,12 @@
 import random
+import time
 
 # region classes
 class Player(object):
     """Holds data about the player"""
-    def __init__(self, symbol, isAI):
+    def __init__(self, symbol, opponentSymbol, isAI):
         self.symbol = symbol
+        self.opponentSymbol = opponentSymbol
         self.isAI = isAI
 
 class Board:
@@ -45,6 +47,7 @@ def EvaluateAllSpaces():
                 spaceRatings.append(EvaluateSpace(row, column))
     
     move = PickMove(spaceRatings)
+    time.sleep(0.5)
     ExecuteMove(move[0], move[1])
 
 def EvaluateSpace(x, y):
@@ -52,26 +55,108 @@ def EvaluateSpace(x, y):
     global board
     global currentPlayer
     global players
-    rating = 0
+    ratingColumnSelf = 0
+    ratingColumnOther = 0
+    ratingColumn = 0
+    ratingRowSelf = 0
+    ratingRowOther = 0
+    ratingRow = 0
 
+    #checks verticaly for which spaces are taken
     for column in range(board.size):
         if column != y:
             if type(board.data[x][column]) != int:
-                if board.data[x][column] != players[currentPlayer].symbol:
-                    rating += 2
+                if board.data[x][column] == players[currentPlayer].opponentSymbol:
+                    ratingColumnOther += 1
                 elif board.data[x][column] == players[currentPlayer].symbol:
-                    rating += 1
-                
-    
+                    ratingColumnSelf += 1
+    if ratingColumnSelf == board.size - 1:
+        return (x,y,board.size * 3)
+    elif ratingColumnOther == board.size - 1:
+        return (x,y,board.size * 2)
+    ratingColumn = ratingColumnSelf - ratingColumnOther
+
+    # checks horizontall for which spaces are taken
     for row in range(board.size):
         if row != x:
             if type(board.data[row][y]) != int:
-                if board.data[row][y] != players[currentPlayer].symbol:
-                    rating += 2
+                if board.data[row][y] == players[currentPlayer].opponentSymbol:
+                    ratingRowOther += 1
                 elif board.data[row][y] == players[currentPlayer].symbol:
-                    rating += 1
+                    ratingRowSelf += 1
+    if ratingRowSelf == board.size - 1:
+        return (x,y,board.size * 3)
+    elif ratingRowOther == board.size - 1:
+        return (x,y,board.size * 2)
+    ratingRow = ratingRowSelf - ratingRowOther
 
-    return (x, y, rating)
+    if (CheckImpendingDiagonalWin(x, y)):
+        return (x,y, board.size * 3)
+    if (CheckImpendingDiagonalLoss(x,y)):
+        return (x,y, board.size * 2)
+
+
+    return (x, y, ratingRow + ratingColumn)
+
+def CheckImpendingDiagonalWin(x, y):
+    """Ai logic: check if any player is only one placement diagonally from winning, and returns true if so"""
+    #Checks if a placement here will win diagonally (upper left corner to bottom right)
+    global players
+    global currentPlayer
+
+    isOnThisDiagonal = False
+    counter = 0
+    for i in range(board.size):
+        if x == i and y == i:
+            isOnThisDiagonal = True
+        if board.data[i][i] == players[currentPlayer].symbol:
+            counter += 1
+    if counter == board.size - 1  and isOnThisDiagonal == True:
+        return True
+    isOnThisDiagonal = False
+
+    #Checks if a placement here will win diagonally (upper right corner to bottom left)
+    counter = 0
+    yValue = 0
+    for i in range(board.size-1, -1, -1):
+        if x == i and y == yValue:
+            isOnThisDiagonal = True
+        if board.data[i][yValue] == players[currentPlayer].symbol:
+            counter += 1
+        yValue += 1
+    if counter == board.size - 1 and isOnThisDiagonal == True:
+        return True
+    return False
+
+def CheckImpendingDiagonalLoss(x, y):
+    """Ai logic: check if any player is only one placement diagonally from losing, and returns true if so"""
+    global players
+    global currentPlayer
+    isOnThisDiagonal = False
+    #Checks if a placement here would stop the other player from winning diagnoally (upper left corner to bottom right)
+    
+    counter = 0
+    for i in range(board.size):
+        if x == i and y == i:
+            isOnThisDiagonal = True
+        if board.data[i][i] == players[currentPlayer].opponentSymbol:
+            counter += 1
+    if counter == board.size - 1  and isOnThisDiagonal == True:
+        return True
+    isOnThisDiagonal = False
+
+    #Checks if a placement here would stop the other player from winning diagnoally(upper right corner to bottom left)
+    counter = 0
+    yValue = 0
+    for i in range(board.size-1, -1, -1):
+        if x == i and y == yValue:
+            isOnThisDiagonal = True
+        if board.data[i][yValue] == players[currentPlayer].opponentSymbol:
+            counter += 1
+        yValue += 1
+    if counter == board.size - 1  and isOnThisDiagonal == True:
+        return True
+    return False
 
 def PickMove(ratings):
     """Picks a square, based on the ratings. If multiple are tied, pick one at random"""
@@ -93,7 +178,6 @@ def PickMove(ratings):
     
     if len(equivelantMoves) == 1:
         return equivelantMoves[0]
-    print(len(ratings))
     return equivelantMoves[random.randint(0, len(equivelantMoves)-1)]
 # endregion
 
@@ -307,7 +391,7 @@ def QuestionAI():
 
 def PlayerChooseSymbol():
     """If playing against AI, evaluates whether the player should be X or O"""
-    inp = input("Play as X?\n")
+    inp = input("Play as X? y/n\n")
     evaluatedInput = EvaluateYesNo(inp)
 
     if type(evaluatedInput) == str:
@@ -365,11 +449,11 @@ def InitializeGame():
     isAgainstAI = QuestionAI()
     if isAgainstAI:
         if PlayerChooseSymbol() == "O":
-            players.append(Player("O", False))
-            players.append(Player("X", True))
+            players.append(Player("O", "X", False))
+            players.append(Player("X", "O", True))
         else:
-            players.append(Player("O", True))
-            players.append(Player("X", False))
+            players.append(Player("O", "X", True))
+            players.append(Player("X", "O", False))
     else:
         players.append(Player("O", False))
         players.append(Player("X", False))
