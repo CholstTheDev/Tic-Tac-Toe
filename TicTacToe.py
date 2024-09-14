@@ -1,25 +1,46 @@
 import random
 
-# region Variables
-isXTurn = False
-currentPlayer = "O"
-board = []
-boardSize = 6
-totalSquares = boardSize * boardSize # hvor mange felter der er på banen. Skal genereres.
+# region classes
+class Player(object):
+    """Holds data about the player"""
+    def __init__(self, symbol, isAI):
+        self.symbol = symbol
+        self.isAI = isAI
 
-againstAI = True
-playerIsX = False
+class Board:
+    """Holds data about the board"""
+    def __init__(self, size):
+        self.size = size
+        self.data = []
+        self.totalSquares = size * size
+    
+    def PopulateEmptyBoard(self):
+        boardCounter = 1
+        self.data.clear()
+        for x in range(self.size):
+            self.data.append([])
+            for y in range(self.size):
+                self.data[x].append(boardCounter)
+                boardCounter = boardCounter + 1
+        
 # endregion
 
-# region AI logic
+# region Variables
+enableBoardSizeChoice = False #If true lets the players choose board size
+players = [] #A list of players
+currentPlayer = -1
+# endregion
+
+# region AI
 def EvaluateAllSpaces():
-    global boardSize
+    """Main AI function. Evaluates all spaces, and picks a move"""
+    global board
     spaceRatings = []
 
     print("The AI chooses...")
 
-    for row in range(boardSize):
-        for column in range(boardSize):
+    for row in range(board.size):
+        for column in range(board.size):
             if ValidateMove(row, column):
                 spaceRatings.append(EvaluateSpace(row, column))
     
@@ -27,29 +48,33 @@ def EvaluateAllSpaces():
     ExecuteMove(move[0], move[1])
 
 def EvaluateSpace(x, y):
-    
+    """Scans the board, and gives a rating to each square."""
+    global board
+    global currentPlayer
+    global players
     rating = 0
 
-    for column in range(boardSize):
+    for column in range(board.size):
         if column != y:
-            if type(board[x][column]) != int:
-                if board[x][column] != currentPlayer:
+            if type(board.data[x][column]) != int:
+                if board.data[x][column] != players[currentPlayer].symbol:
                     rating += 2
-                else:
+                elif board.data[x][column] == players[currentPlayer].symbol:
                     rating += 1
                 
     
-    for row in range(boardSize):
+    for row in range(board.size):
         if row != x:
-            if type(board[row][y]) != int:
-                if board[row][y] != currentPlayer:
+            if type(board.data[row][y]) != int:
+                if board.data[row][y] != players[currentPlayer].symbol:
                     rating += 2
-                else:
+                elif board.data[row][y] == players[currentPlayer].symbol:
                     rating += 1
 
     return (x, y, rating)
 
 def PickMove(ratings):
+    """Picks a square, based on the ratings. If multiple are tied, pick one at random"""
     # determine highest value
     highestValue = 0
     for value in ratings:
@@ -73,234 +98,200 @@ def PickMove(ratings):
 # endregion
 
 # region Move logic
+def ExecuteNextTurn():
+    """Is called continually, and increments which player is active."""
+    global currentPlayer
+    global players
+    currentPlayer += 1
+    if currentPlayer >= len(players):
+        currentPlayer = 0
+
+    if players[currentPlayer].isAI:
+        EvaluateAllSpaces()
+    else:
+        AwaitUserInput()
+
 def ValidateMove(targetRow, targetColumn):
+    """Validates whether the square is already taken"""
     global board
     
-    if type(board[targetRow][targetColumn]) == type("string"):
+    if type(board.data[targetRow][targetColumn]) == type("string"):
         return False
 
     return True
 
 def ExecuteMove(targetRow, targetColumn):
+    """Perfoms the move, prints the board and checks if anyone won"""
     global currentPlayer
-    global isXTurn
     global board
-    global againstAI
-    global playerIsX
+    global players
 
-    board[targetRow][targetColumn] = currentPlayer
+    board.data[targetRow][targetColumn] = players[currentPlayer].symbol
 
     PrintBoard()
     
     if CheckVictory():
         Victory()
-        return
-    
-    
-    
-    if isXTurn:
-        isXTurn = False
-        currentPlayer = "O"
-    else:
-        isXTurn = True
-        currentPlayer = "X"
-    
-    if againstAI and playerIsX == False and isXTurn:
-        EvaluateAllSpaces()
-    elif againstAI and playerIsX and isXTurn == False:
-        EvaluateAllSpaces()
 
         
 # endregion
     
 # region Evaluate game ending
-
 def Victory():
+    """Displays the winner and gives the player the chance to play again"""
     global currentPlayer
-    global isXTurn
+    global players
     global board
     
-    print(f"{currentPlayer} has won!")
+    print(f"{players[currentPlayer].symbol} has won!")
     input("Press enter to play again...")
-    InitializeBoard()
+    InitializeGame()
 
 
 def CheckVictory():
-    global currentPlayer
-    global isXTurn
-    global board
-    
+    """If any victory condition is fulfilled, return true"""
     if CheckHorizontalVictory() or CheckVerticalVictory() or CheckDiagonalVictory() or CheckStalemate():
         return True
     return False
     
-def CheckVerticalVictory():  
+def CheckVerticalVictory():
+    """If a player has attained victory with vertical placements, return true. Else, return false"""
     global currentPlayer
-    global isXTurn
     global board
-    global boardSize
     
-    for columns in range(boardSize):
+    for columns in range(board.size):
         counter = 0
-        for rows in range(boardSize):
-            if board[rows][columns] == currentPlayer:
+        for rows in range(board.size):
+            if board.data[rows][columns] == players[currentPlayer].symbol:
                 counter += 1
-        if counter == boardSize:
+        if counter == board.size:
             print("Victory by vertical!")
             return True
-            Victory()
     return False
     
 def CheckHorizontalVictory(): 
+    """If a player has attained victory with horizontal placements, return true. Else, return false"""
     global currentPlayer
-    global isXTurn
     global board
-    global boardSize
     
-    for rows in range(boardSize):
+    for rows in range(board.size):
         counter = 0
-        for columns in range(boardSize):
-            if board[rows][columns] == currentPlayer:
+        for columns in range(board.size):
+            if board.data[rows][columns] == players[currentPlayer].symbol:
                 counter += 1
-        if counter == boardSize:
+        if counter == board.size:
             print("Victory by horizontal!")
             return True
-            Victory()
     return False
 
 def CheckDiagonalVictory():
+    """If a player has attained diagonal victory with vertical placements, return true. Else, return false"""
     global currentPlayer
-    global isXTurn
     global board
-    global boardSize
-    
+
     counter = 0
-    for x in range(boardSize):
-        if board[x][x] == currentPlayer:
+    for x in range(board.size):
+        if board.data[x][x] == players[currentPlayer].symbol:
             counter += 1
-    if counter == boardSize:
+    if counter == board.size:
         print("Victory by diagonal!")
         return True
     
     counter = 0
     yValue = 0
-    for x in range(boardSize-1, -1, -1):
-        if board[x][yValue] == currentPlayer:
+    for x in range(board.size-1, -1, -1):
+        if board.data[x][yValue] == players[currentPlayer].symbol:
             counter += 1
         yValue += 1
-    if counter == boardSize:
+    if counter == board.size:
         print("Victory by diagonal!")
         return True
         
     return False
     
 def CheckStalemate():
-    global boardSize
+    """Ends the game if all squares are taken"""
     global board
 
-    for row in range(boardSize):
-        for column in range(boardSize):
-            if type(board[row][column]) == int:
+    for row in range(board.size):
+        for column in range(board.size):
+            if type(board.data[row][column]) == int:
                 return
     
     print("Stalemate")
     input("Press enter to play again...")
-    InitializeBoard()
+    InitializeGame()
 # endregion
 
 # region Utilities
 def PrintBoard():
+    """Prints the current board"""
     global board
-    global boardSize
 
     rowString = ""
     
-    if totalSquares > 9:
-        for row in range(boardSize):
-            print("-" * 5 + "-" * 4 * boardSize)
+    if board.totalSquares > 9:
+        for row in range(board.size):
+            print("-" * 5 + "-" * 4 * board.size)
             rowString = "| "
-            for column in range(boardSize):
-                if row * boardSize + column < 9 or type(board[row][column]) == str:
-                    rowString = rowString + f"{board[row][column]}  | "
+            for column in range(board.size):
+                if row * board.size + column < 9 or type(board.data[row][column]) == str:
+                    rowString = rowString + f"{board.data[row][column]}  | "
                 else:
-                    rowString = rowString + f"{board[row][column]} | "
+                    rowString = rowString + f"{board.data[row][column]} | "
             print(rowString)
-        print("-" * 5 + "-" * 4 * boardSize) # Printer nederste række.
+        print("-" * 5 + "-" * 4 * board.size) # Printer nederste række.
     else:
-        for row in range(boardSize):
-            print("-" * 4 + "-" * 3 * boardSize)
+        for row in range(board.size):
+            print("-" * 4 + "-" * 3 * board.size)
             rowString = "| "
-            for column in range(boardSize):
-                rowString = rowString + f"{board[row][column]} | "
+            for column in range(board.size):
+                rowString = rowString + f"{board.data[row][column]} | "
             print(rowString)
-        print("-" * 4 + "-" * 3 * boardSize) # Printer nederste række.
-    
-
-def InitializeBoard():
-    global currentPlayer
-    global isXTurn
-    global board
-    global boardSize
-    
-    SoloOrMulti()
-    PopulateEmptyBoard(boardSize, boardSize)
-    isXTurn = False
-    currentPlayer = "O"
-    PrintBoard()
-    if againstAI and playerIsX:
-        EvaluateAllSpaces()
-
-
-
-def PopulateEmptyBoard(sizeX, sizeY):
-    boardCounter = 1
-    board.clear()
-    for row in range(sizeX):
-        board.append([])
-        for column in range(sizeY):
-            board[row].append(boardCounter)
-            boardCounter = boardCounter + 1
-
-
+        print("-" * 4 + "-" * 3 * board.size) # Printer nederste række.
 # endregion
 
 # region input
 def AwaitUserInput():
+    """Reads the user input until a valid position is given"""
     global currentPlayer
     
-    move = input(f"Waiting for {currentPlayer} player move...\n")
-    if ValidateInput(move) == True:
+    move = input(f"Waiting for {players[currentPlayer].symbol} player move...\n")
+    if ValidateMoveInput(move) == True:
         boardCoordinate = InputToBoardCoordinate(move)
         if ValidateMove(boardCoordinate[0], boardCoordinate[1]) == True:
             ExecuteMove(boardCoordinate[0], boardCoordinate[1])
         else:
             print("Square is already taken")
-    
-    return
+            AwaitUserInput()
+    else:
+        AwaitUserInput()
 
-def ValidateInput(input):
-    
+def ValidateMoveInput(input):
+    """Validates whether the input is valid, in terms of input. Returns true if input is valid"""
     if input.isnumeric() == False:
         print("Input must be a whole number")
         return False
     
-    if int(input) == 0 or int(input)-1 > totalSquares:
-        print(f"Input must be a number from 1 - {totalSquares}")
+    if int(input) == 0 or int(input)-1 > board.totalSquares:
+        print(f"Input must be a number from 1 - {board.totalSquares}")
         return False
     
     return True
 
 def InputToBoardCoordinate(input):
-    global boardSize
+    """Takes an input number, and returns the board coordinate"""
+    global board
 
     counter = 0
-    for row in range(boardSize):
-        for column in range(boardSize):
+    for row in range(board.size):
+        for column in range(board.size):
             counter += 1
             if counter == int(input):
                 return (row, column)
 
-def SoloOrMulti():
+def QuestionAI():
+    """Asks the player whether they want to play against AI or a human"""
     global againstAI
     
     inp = input("Play against AI? y/n\n")
@@ -308,44 +299,86 @@ def SoloOrMulti():
 
     if type(evaluatedInput) == type("string"):
         print("Not a valid input")
-        SoloOrMulti()
+        QuestionAI()
         return
 
     againstAI = evaluatedInput
-    if againstAI == False:
-        return
-    
-    PlayerChooseSymbol()
-    
+    return(againstAI)
 
 def PlayerChooseSymbol():
-    global playerIsX
-
-    inp = input("Play as X? y/n\n")
+    """If playing against AI, evaluates whether the player should be X or O"""
+    inp = input("Play as X?\n")
     evaluatedInput = EvaluateYesNo(inp)
 
-    if type(evaluatedInput) == type("string"):
+    if type(evaluatedInput) == str:
         print("Not a valid input")
         PlayerChooseSymbol()
         return
     
-    playerIsX = evaluatedInput
     
     if evaluatedInput:
         print("Player is X. The AI makes the first move...")
+        return "X"
     else:
         print("Player is O. You will make the first move...")
+        return "O"
 
 
 def EvaluateYesNo(input):
+    """Returns true if the first letter is y, returns false if the first letter is n. 
+    Returns a string if neither is true"""
     if input.lower()[0] == "y":
         return True
     elif input.lower()[0] == "n":
         return False
     else:
         return "invalid"
+    
+def ChooseBoardSize(inp):
+    """Validates the chosen boardsize"""
+    if inp.isnumeric == False:
+        return ChooseBoardSize(input("That wasn't a number, try again\n"))
+    elif 3 <= int(inp):
+        return int(inp)    
+    else:
+        return ChooseBoardSize(input("The size of the board must be greater than 2. Try again\n"))
+
+    
 # endregion
 
-InitializeBoard()
-while True:
-    AwaitUserInput()
+def InitializeGame():
+    """Initializes the game - resets values if a previous game was played"""
+    
+
+    global currentPlayer
+    global board
+
+    if enableBoardSizeChoice:
+        boardSize = ChooseBoardSize(input("Which size should the board be?\n"))
+        board = Board(boardSize)
+    else:
+        board = Board(3)
+    board.PopulateEmptyBoard()
+
+    players.clear()
+
+    isAgainstAI = QuestionAI()
+    if isAgainstAI:
+        if PlayerChooseSymbol() == "O":
+            players.append(Player("O", False))
+            players.append(Player("X", True))
+        else:
+            players.append(Player("O", True))
+            players.append(Player("X", False))
+    else:
+        players.append(Player("O", False))
+        players.append(Player("X", False))
+
+    PrintBoard()
+
+    currentPlayer = -1   
+
+InitializeGame() #Initializes the game
+while True: #Runs forever, makes sure the game doesn't stop
+    ExecuteNextTurn()
+    
